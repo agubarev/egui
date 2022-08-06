@@ -12,8 +12,9 @@ use legend::LegendWidget;
 use transform::ScreenTransform;
 
 pub use items::{
-    Arrows, Bar, BarChart, BoxElem, BoxPlot, BoxSpread, HLine, Line, LineStyle, MarkerShape,
-    Orientation, PlotImage, PlotPoint, PlotPoints, Points, Polygon, Text, VLine,
+    Arrows, Bar, BarChart, BoxElem, BoxPlot, BoxSpread, Candle, CandleElem, ChartPlot, FilledRange,
+    HLine, Line, LineStyle, MarkerShape, Orientation, PlotImage, PlotPoint, PlotPoints, Points,
+    Polygon, Text, VLine,
 };
 pub use legend::{Corner, Legend};
 pub use transform::PlotBounds;
@@ -998,6 +999,12 @@ impl PlotUi {
         self.items.push(Box::new(hline));
     }
 
+    pub fn filled_range(&mut self, mut filled_range: FilledRange) {
+        if filled_range.stroke.color == Color32::TRANSPARENT {
+            filled_range.stroke.color = self.auto_color();
+        }
+        self.items.push(Box::new(filled_range));
+    }
     /// Add a vertical line.
     /// Can be useful e.g. to show min/max bounds or similar.
     /// Always fills the full height of the plot.
@@ -1019,6 +1026,19 @@ impl PlotUi {
             box_plot = box_plot.color(self.auto_color());
         }
         self.items.push(Box::new(box_plot));
+    }
+
+    /// Add a chart plot diagram.
+    pub fn chart_plot(&mut self, mut chart_plot: ChartPlot) {
+        if chart_plot.candle_elems.is_empty() {
+            return;
+        }
+
+        // Give the elements an automatic color if no color has been assigned.
+        if chart_plot.default_color == Color32::TRANSPARENT {
+            chart_plot = chart_plot.color(self.auto_color());
+        }
+        self.items.push(Box::new(chart_plot));
     }
 
     /// Add a bar chart.

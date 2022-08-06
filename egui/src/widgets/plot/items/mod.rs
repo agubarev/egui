@@ -13,10 +13,12 @@ use values::{ClosestElem, PlotGeometry};
 
 pub use bar::Bar;
 pub use box_elem::{BoxElem, BoxSpread};
+pub use candle_elem::{Candle, CandleElem};
 pub use values::{LineStyle, MarkerShape, Orientation, PlotPoint, PlotPoints};
 
 mod bar;
 mod box_elem;
+mod candle_elem;
 mod rect_elem;
 mod values;
 
@@ -1541,6 +1543,270 @@ impl PlotItem for BoxPlot {
 
         box_plot.add_shapes(plot.transform, true, shapes);
         box_plot.add_rulers_and_text(self, plot, shapes);
+    }
+}
+
+// ----------------------------------------------------------------------------
+// Chart plot
+
+pub struct ChartPlot {
+    pub(super) candle_elems: Vec<CandleElem>,
+    pub(super) default_color: Color32,
+    pub(super) name: String,
+    /// A custom element formatter
+    pub(super) element_formatter: Option<Box<dyn Fn(&CandleElem, &ChartPlot) -> String>>,
+    highlight: bool,
+}
+
+impl ChartPlot {
+    /// Create a plot containing multiple `candles`. It defaults to vertically oriented elements.
+    pub fn new(candles: Vec<CandleElem>) -> Self {
+        Self {
+            candle_elems: candles,
+            default_color: Color32::TRANSPARENT,
+            name: String::new(),
+            element_formatter: None,
+            highlight: false,
+        }
+    }
+
+    /// Set the default color. It is set on all elements that do not already have a specific color.
+    /// This is the color that shows up in the legend.
+    /// It can be overridden at the element level (see [`BoxElem`]).
+    /// Default is `Color32::TRANSPARENT` which means a color will be auto-assigned.
+    pub fn color(mut self, color: impl Into<Color32>) -> Self {
+        let plot_color = color.into();
+        self.default_color = plot_color;
+        for box_elem in &mut self.candle_elems {
+            if box_elem.fill == Color32::TRANSPARENT
+                && box_elem.stroke.color == Color32::TRANSPARENT
+            {
+                box_elem.fill = plot_color.linear_multiply(0.2);
+                box_elem.stroke.color = plot_color;
+            }
+        }
+        self
+    }
+
+    /// Name of this box plot diagram.
+    ///
+    /// This name will show up in the plot legend, if legends are turned on. Multiple series may
+    /// share the same name, in which case they will also share an entry in the legend.
+    #[allow(clippy::needless_pass_by_value)]
+    pub fn name(mut self, name: impl ToString) -> Self {
+        self.name = name.to_string();
+        self
+    }
+
+    /// Highlight all plot elements.
+    pub fn highlight(mut self, highlight: bool) -> Self {
+        self.highlight = highlight;
+        self
+    }
+
+    /// Add a custom way to format an element.
+    /// Can be used to display a set number of decimals or custom labels.
+    pub fn element_formatter(
+        mut self,
+        formatter: Box<dyn Fn(&CandleElem, &ChartPlot) -> String>,
+    ) -> Self {
+        self.element_formatter = Some(formatter);
+        self
+    }
+}
+
+impl PlotItem for ChartPlot {
+    fn get_shapes(&self, _ui: &mut Ui, transform: &ScreenTransform, shapes: &mut Vec<Shape>) {
+        for b in &self.candle_elems {
+            b.add_shapes(transform, self.highlight, shapes);
+        }
+    }
+
+    fn initialize(&mut self, _x_range: RangeInclusive<f64>) {
+        // nothing to do
+    }
+
+    fn name(&self) -> &str {
+        self.name.as_str()
+    }
+
+    fn color(&self) -> Color32 {
+        self.default_color
+    }
+
+    fn highlight(&mut self) {
+        self.highlight = true;
+    }
+
+    fn highlighted(&self) -> bool {
+        self.highlight
+    }
+
+    fn geometry(&self) -> PlotGeometry<'_> {
+        PlotGeometry::Rects
+    }
+
+    fn get_bounds(&self) -> PlotBounds {
+        let mut bounds = PlotBounds::NOTHING;
+        for c in &self.candle_elems {
+            bounds.merge(&c.bounds());
+        }
+        bounds
+    }
+
+    fn find_closest(&self, point: Pos2, transform: &ScreenTransform) -> Option<ClosestElem> {
+        find_closest_rect(&self.candle_elems, point, transform)
+    }
+
+    fn on_hover(
+        &self,
+        elem: ClosestElem,
+        shapes: &mut Vec<Shape>,
+        plot: &PlotConfig<'_>,
+        _: &LabelFormatter,
+    ) {
+        let chart_plot = &self.candle_elems[elem.index];
+
+        chart_plot.add_shapes(plot.transform, true, shapes);
+        chart_plot.add_rulers_and_text(self, plot, shapes);
+    }
+}
+
+// ----------------------------------------------------------------------------
+// Filled range
+
+pub struct FilledRange {
+    pub(super) top: f64,
+    pub(super) bottom: f64,
+    // pub(super) series: PlotPoints,
+    pub(super) stroke: Stroke,
+    pub(super) name: String,
+    pub(super) highlight: bool,
+    pub(super) fill_alpha: f32,
+    pub(super) style: LineStyle,
+}
+
+impl FilledRange {
+    pub fn new(top: f64, bottom: f64) -> Self {
+        Self {
+            top,
+            bottom,
+            stroke: Stroke::new(1.0, Color32::TRANSPARENT),
+            name: Default::default(),
+            highlight: false,
+            fill_alpha: DEFAULT_FILL_ALPHA,
+            style: LineStyle::Solid,
+        }
+    }
+
+    /// Highlight this polygon in the plot by scaling up the stroke and reducing the fill
+    /// transparency.
+    pub fn highlight(mut self, highlight: bool) -> Self {
+        self.highlight = highlight;
+        self
+    }
+
+    /// Add a custom stroke.
+    pub fn stroke(mut self, stroke: impl Into<Stroke>) -> Self {
+        self.stroke = stroke.into();
+        self
+    }
+
+    /// Set the stroke width.
+    pub fn width(mut self, width: impl Into<f32>) -> Self {
+        self.stroke.width = width.into();
+        self
+    }
+
+    /// Stroke color. Default is `Color32::TRANSPARENT` which means a color will be auto-assigned.
+    pub fn color(mut self, color: impl Into<Color32>) -> Self {
+        self.stroke.color = color.into();
+        self
+    }
+
+    /// Alpha of the filled area.
+    pub fn fill_alpha(mut self, alpha: impl Into<f32>) -> Self {
+        self.fill_alpha = alpha.into();
+        self
+    }
+
+    /// Set the outline's style. Default is `LineStyle::Solid`.
+    pub fn style(mut self, style: LineStyle) -> Self {
+        self.style = style;
+        self
+    }
+
+    /// Name of this polygon.
+    ///
+    /// This name will show up in the plot legend, if legends are turned on.
+    ///
+    /// Multiple plot items may share the same name, in which case they will also share an entry in
+    /// the legend.
+    #[allow(clippy::needless_pass_by_value)]
+    pub fn name(mut self, name: impl ToString) -> Self {
+        self.name = name.to_string();
+        self
+    }
+}
+
+impl PlotItem for FilledRange {
+    fn get_shapes(&self, _ui: &mut Ui, transform: &ScreenTransform, shapes: &mut Vec<Shape>) {
+        let Self {
+            top,
+            bottom,
+            stroke,
+            highlight,
+            mut fill_alpha,
+            style,
+            ..
+        } = self;
+
+        if *highlight {
+            fill_alpha = (2.0 * fill_alpha).at_most(1.0);
+        }
+
+        let series = vec![
+            transform.position_from_point(&PlotPoint::new(transform.bounds().min[0], self.top)),
+            transform.position_from_point(&PlotPoint::new(transform.bounds().max[0], self.top)),
+            transform.position_from_point(&PlotPoint::new(transform.bounds().max[0], self.bottom)),
+            transform.position_from_point(&PlotPoint::new(transform.bounds().min[0], self.bottom)),
+            transform.position_from_point(&PlotPoint::new(transform.bounds().min[0], self.top)),
+        ];
+
+        let fill = Rgba::from(stroke.color).to_opaque().multiply(fill_alpha);
+
+        let shape = Shape::convex_polygon(series.clone(), fill, Stroke::none());
+        shapes.push(shape);
+        style.style_line(series, *stroke, *highlight, shapes);
+    }
+
+    fn initialize(&mut self, x_range: RangeInclusive<f64>) {}
+
+    fn name(&self) -> &str {
+        self.name.as_str()
+    }
+
+    fn color(&self) -> Color32 {
+        self.stroke.color
+    }
+
+    fn highlight(&mut self) {
+        self.highlight = true;
+    }
+
+    fn highlighted(&self) -> bool {
+        self.highlight
+    }
+
+    fn geometry(&self) -> PlotGeometry<'_> {
+        PlotGeometry::None
+    }
+
+    fn get_bounds(&self) -> PlotBounds {
+        let mut bounds = PlotBounds::NOTHING;
+        bounds.min[1] = self.top;
+        bounds.max[1] = self.top;
+        bounds
     }
 }
 
