@@ -34,7 +34,7 @@ pub(super) struct PlotConfig<'a> {
 
 /// Trait shared by things that can be drawn in the plot.
 pub(super) trait PlotItem {
-    fn get_shapes(&self, ui: &mut Ui, transform: &ScreenTransform, shapes: &mut Vec<Shape>);
+    fn shapes(&self, ui: &mut Ui, transform: &ScreenTransform, shapes: &mut Vec<Shape>);
 
     fn initialize(&mut self, x_range: RangeInclusive<f64>);
 
@@ -48,7 +48,7 @@ pub(super) trait PlotItem {
 
     fn geometry(&self) -> PlotGeometry<'_>;
 
-    fn get_bounds(&self) -> PlotBounds;
+    fn bounds(&self) -> PlotBounds;
 
     fn find_closest(&self, point: Pos2, transform: &ScreenTransform) -> Option<ClosestElem> {
         match self.geometry() {
@@ -169,7 +169,7 @@ impl HLine {
 }
 
 impl PlotItem for HLine {
-    fn get_shapes(&self, _ui: &mut Ui, transform: &ScreenTransform, shapes: &mut Vec<Shape>) {
+    fn shapes(&self, _ui: &mut Ui, transform: &ScreenTransform, shapes: &mut Vec<Shape>) {
         let HLine {
             y,
             stroke,
@@ -206,7 +206,7 @@ impl PlotItem for HLine {
         PlotGeometry::None
     }
 
-    fn get_bounds(&self) -> PlotBounds {
+    fn bounds(&self) -> PlotBounds {
         let mut bounds = PlotBounds::NOTHING;
         bounds.min[1] = self.y;
         bounds.max[1] = self.y;
@@ -279,7 +279,7 @@ impl VLine {
 }
 
 impl PlotItem for VLine {
-    fn get_shapes(&self, _ui: &mut Ui, transform: &ScreenTransform, shapes: &mut Vec<Shape>) {
+    fn shapes(&self, _ui: &mut Ui, transform: &ScreenTransform, shapes: &mut Vec<Shape>) {
         let VLine {
             x,
             stroke,
@@ -316,7 +316,7 @@ impl PlotItem for VLine {
         PlotGeometry::None
     }
 
-    fn get_bounds(&self) -> PlotBounds {
+    fn bounds(&self) -> PlotBounds {
         let mut bounds = PlotBounds::NOTHING;
         bounds.min[0] = self.x;
         bounds.max[0] = self.x;
@@ -403,7 +403,7 @@ fn y_intersection(p1: &Pos2, p2: &Pos2, y: f32) -> Option<f32> {
 }
 
 impl PlotItem for Line {
-    fn get_shapes(&self, _ui: &mut Ui, transform: &ScreenTransform, shapes: &mut Vec<Shape>) {
+    fn shapes(&self, _ui: &mut Ui, transform: &ScreenTransform, shapes: &mut Vec<Shape>) {
         let Self {
             series,
             stroke,
@@ -486,8 +486,8 @@ impl PlotItem for Line {
         PlotGeometry::Points(self.series.points())
     }
 
-    fn get_bounds(&self) -> PlotBounds {
-        self.series.get_bounds()
+    fn bounds(&self) -> PlotBounds {
+        self.series.bounds()
     }
 }
 
@@ -564,7 +564,7 @@ impl Polygon {
 }
 
 impl PlotItem for Polygon {
-    fn get_shapes(&self, _ui: &mut Ui, transform: &ScreenTransform, shapes: &mut Vec<Shape>) {
+    fn shapes(&self, _ui: &mut Ui, transform: &ScreenTransform, shapes: &mut Vec<Shape>) {
         let Self {
             series,
             stroke,
@@ -616,8 +616,8 @@ impl PlotItem for Polygon {
         PlotGeometry::Points(self.series.points())
     }
 
-    fn get_bounds(&self) -> PlotBounds {
-        self.series.get_bounds()
+    fn bounds(&self) -> PlotBounds {
+        self.series.bounds()
     }
 }
 
@@ -676,7 +676,7 @@ impl Text {
 }
 
 impl PlotItem for Text {
-    fn get_shapes(&self, ui: &mut Ui, transform: &ScreenTransform, shapes: &mut Vec<Shape>) {
+    fn shapes(&self, ui: &mut Ui, transform: &ScreenTransform, shapes: &mut Vec<Shape>) {
         let color = if self.color == Color32::TRANSPARENT {
             ui.style().visuals.text_color()
         } else {
@@ -730,7 +730,7 @@ impl PlotItem for Text {
         PlotGeometry::None
     }
 
-    fn get_bounds(&self) -> PlotBounds {
+    fn bounds(&self) -> PlotBounds {
         let mut bounds = PlotBounds::NOTHING;
         bounds.extend_with(&self.position);
         bounds
@@ -816,7 +816,7 @@ impl Points {
 }
 
 impl PlotItem for Points {
-    fn get_shapes(&self, _ui: &mut Ui, transform: &ScreenTransform, shapes: &mut Vec<Shape>) {
+    fn shapes(&self, _ui: &mut Ui, transform: &ScreenTransform, shapes: &mut Vec<Shape>) {
         let sqrt_3 = 3_f32.sqrt();
         let frac_sqrt_3_2 = 3_f32.sqrt() / 2.0;
         let frac_1_sqrt_2 = 1.0 / 2_f32.sqrt();
@@ -967,8 +967,8 @@ impl PlotItem for Points {
         PlotGeometry::Points(self.series.points())
     }
 
-    fn get_bounds(&self) -> PlotBounds {
-        self.series.get_bounds()
+    fn bounds(&self) -> PlotBounds {
+        self.series.bounds()
     }
 }
 
@@ -1018,7 +1018,7 @@ impl Arrows {
 }
 
 impl PlotItem for Arrows {
-    fn get_shapes(&self, _ui: &mut Ui, transform: &ScreenTransform, shapes: &mut Vec<Shape>) {
+    fn shapes(&self, _ui: &mut Ui, transform: &ScreenTransform, shapes: &mut Vec<Shape>) {
         use crate::emath::*;
         let Self {
             origins,
@@ -1082,8 +1082,8 @@ impl PlotItem for Arrows {
         PlotGeometry::Points(self.origins.points())
     }
 
-    fn get_bounds(&self) -> PlotBounds {
-        self.origins.get_bounds()
+    fn bounds(&self) -> PlotBounds {
+        self.origins.bounds()
     }
 }
 
@@ -1157,7 +1157,7 @@ impl PlotImage {
 }
 
 impl PlotItem for PlotImage {
-    fn get_shapes(&self, ui: &mut Ui, transform: &ScreenTransform, shapes: &mut Vec<Shape>) {
+    fn shapes(&self, ui: &mut Ui, transform: &ScreenTransform, shapes: &mut Vec<Shape>) {
         let Self {
             position,
             texture_id,
@@ -1217,7 +1217,7 @@ impl PlotItem for PlotImage {
         PlotGeometry::None
     }
 
-    fn get_bounds(&self) -> PlotBounds {
+    fn bounds(&self) -> PlotBounds {
         let mut bounds = PlotBounds::NOTHING;
         let left_top = PlotPoint::new(
             self.position.x as f32 - self.size.x / 2.0,
@@ -1348,7 +1348,7 @@ impl BarChart {
 }
 
 impl PlotItem for BarChart {
-    fn get_shapes(&self, _ui: &mut Ui, transform: &ScreenTransform, shapes: &mut Vec<Shape>) {
+    fn shapes(&self, _ui: &mut Ui, transform: &ScreenTransform, shapes: &mut Vec<Shape>) {
         for b in &self.bars {
             b.add_shapes(transform, self.highlight, shapes);
         }
@@ -1378,7 +1378,7 @@ impl PlotItem for BarChart {
         PlotGeometry::Rects
     }
 
-    fn get_bounds(&self) -> PlotBounds {
+    fn bounds(&self) -> PlotBounds {
         let mut bounds = PlotBounds::NOTHING;
         for b in &self.bars {
             bounds.merge(&b.bounds());
@@ -1490,7 +1490,7 @@ impl BoxPlot {
 }
 
 impl PlotItem for BoxPlot {
-    fn get_shapes(&self, _ui: &mut Ui, transform: &ScreenTransform, shapes: &mut Vec<Shape>) {
+    fn shapes(&self, _ui: &mut Ui, transform: &ScreenTransform, shapes: &mut Vec<Shape>) {
         for b in &self.boxes {
             b.add_shapes(transform, self.highlight, shapes);
         }
@@ -1520,7 +1520,7 @@ impl PlotItem for BoxPlot {
         PlotGeometry::Rects
     }
 
-    fn get_bounds(&self) -> PlotBounds {
+    fn bounds(&self) -> PlotBounds {
         let mut bounds = PlotBounds::NOTHING;
         for b in &self.boxes {
             bounds.merge(&b.bounds());
