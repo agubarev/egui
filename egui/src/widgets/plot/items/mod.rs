@@ -1616,7 +1616,7 @@ impl ChartPlot {
 }
 
 impl PlotItem for ChartPlot {
-    fn get_shapes(&self, _ui: &mut Ui, transform: &ScreenTransform, shapes: &mut Vec<Shape>) {
+    fn shapes(&self, _ui: &mut Ui, transform: &ScreenTransform, shapes: &mut Vec<Shape>) {
         for b in &self.candle_elems {
             b.add_shapes(transform, self.highlight, shapes);
         }
@@ -1646,7 +1646,7 @@ impl PlotItem for ChartPlot {
         PlotGeometry::Rects
     }
 
-    fn get_bounds(&self) -> PlotBounds {
+    fn bounds(&self) -> PlotBounds {
         let mut bounds = PlotBounds::NOTHING;
         for c in &self.candle_elems {
             bounds.merge(&c.bounds());
@@ -1676,9 +1676,9 @@ impl PlotItem for ChartPlot {
 // Filled range
 
 pub struct FilledRange {
-    pub(super) top: f64,
-    pub(super) bottom: f64,
-    // pub(super) series: PlotPoints,
+    pub(super) start: f64,
+    pub(super) end: f64,
+    pub(super) orientation: Orientation,
     pub(super) stroke: Stroke,
     pub(super) name: String,
     pub(super) highlight: bool,
@@ -1687,10 +1687,11 @@ pub struct FilledRange {
 }
 
 impl FilledRange {
-    pub fn new(top: f64, bottom: f64) -> Self {
+    pub fn new(orientation: Orientation, start: f64, end: f64) -> Self {
         Self {
-            top,
-            bottom,
+            start,
+            end,
+            orientation,
             stroke: Stroke::new(1.0, Color32::TRANSPARENT),
             name: Default::default(),
             highlight: false,
@@ -1750,10 +1751,10 @@ impl FilledRange {
 }
 
 impl PlotItem for FilledRange {
-    fn get_shapes(&self, _ui: &mut Ui, transform: &ScreenTransform, shapes: &mut Vec<Shape>) {
+    fn shapes(&self, _ui: &mut Ui, transform: &ScreenTransform, shapes: &mut Vec<Shape>) {
         let Self {
-            top,
-            bottom,
+            start: top,
+            end: bottom,
             stroke,
             highlight,
             mut fill_alpha,
@@ -1765,13 +1766,29 @@ impl PlotItem for FilledRange {
             fill_alpha = (2.0 * fill_alpha).at_most(1.0);
         }
 
-        let series = vec![
-            transform.position_from_point(&PlotPoint::new(transform.bounds().min[0], self.top)),
-            transform.position_from_point(&PlotPoint::new(transform.bounds().max[0], self.top)),
-            transform.position_from_point(&PlotPoint::new(transform.bounds().max[0], self.bottom)),
-            transform.position_from_point(&PlotPoint::new(transform.bounds().min[0], self.bottom)),
-            transform.position_from_point(&PlotPoint::new(transform.bounds().min[0], self.top)),
-        ];
+        let series = if self.orientation == Orientation::Horizontal {
+            vec![
+                transform
+                    .position_from_point(&PlotPoint::new(transform.bounds().min[0], self.start)),
+                transform
+                    .position_from_point(&PlotPoint::new(transform.bounds().max[0], self.start)),
+                transform.position_from_point(&PlotPoint::new(transform.bounds().max[0], self.end)),
+                transform.position_from_point(&PlotPoint::new(transform.bounds().min[0], self.end)),
+                transform
+                    .position_from_point(&PlotPoint::new(transform.bounds().min[0], self.start)),
+            ]
+        } else {
+            vec![
+                transform
+                    .position_from_point(&PlotPoint::new(self.start, transform.bounds().min[1])),
+                transform
+                    .position_from_point(&PlotPoint::new(self.start, transform.bounds().max[1])),
+                transform.position_from_point(&PlotPoint::new(self.end, transform.bounds().max[1])),
+                transform.position_from_point(&PlotPoint::new(self.end, transform.bounds().min[1])),
+                transform
+                    .position_from_point(&PlotPoint::new(self.start, transform.bounds().min[1])),
+            ]
+        };
 
         let fill = Rgba::from(stroke.color).to_opaque().multiply(fill_alpha);
 
@@ -1802,10 +1819,10 @@ impl PlotItem for FilledRange {
         PlotGeometry::None
     }
 
-    fn get_bounds(&self) -> PlotBounds {
+    fn bounds(&self) -> PlotBounds {
         let mut bounds = PlotBounds::NOTHING;
-        bounds.min[1] = self.top;
-        bounds.max[1] = self.top;
+        bounds.min[1] = self.start;
+        bounds.max[1] = self.start;
         bounds
     }
 }
